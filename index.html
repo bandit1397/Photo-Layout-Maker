@@ -176,6 +176,7 @@
       <button id="oPortrait" class="on">세로</button>
       <button id="oLandscape">가로</button>
     </div>
+    <div class="row">위 여백 <input type="range" id="topMargin" min="5" max="40" value="15" class="grow"> <span id="topMarginTxt">15mm</span></div>
     <div class="row">좌우 여백 <input type="range" id="sideMargin" min="5" max="30" value="12" class="grow"> <span id="sideMarginTxt">12mm</span></div>
     <div class="row">아래 여백 <input type="range" id="bottomMargin" min="5" max="30" value="12" class="grow"> <span id="bottomMarginTxt">12mm</span></div>
     <div class="summary" id="summary"></div>
@@ -279,7 +280,7 @@
 
   const S = {
     docTitle: '사 진 대 지',
-    titleSize: 20, titleGap: 4, badgeGap: 5, sideMargin: 12, bottomMargin: 12, bTitleSize: 10.5, descSize: 10, descAlignH: 'center', descAlignV: 'center',
+    titleSize: 20, titleGap: 4, badgeGap: 5, topMargin: 15, sideMargin: 12, bottomMargin: 12, bTitleSize: 10.5, descSize: 10, descAlignH: 'center', descAlignV: 'center',
     count: 4, cols: 2, rows: 2, orient: 'portrait', autoGrid: true,
     showHeader: true, showNo: true, showTitle: true, showPageNo: true, descLines: 2,
     fitDefault: 'contain', autoDate: true,
@@ -313,7 +314,7 @@
   function pageCount() { return Math.max(1, Math.ceil(S.count / perPage())); }
 
   // ---------- 설정 저장(사진 제외) ----------
-  const SETTING_FIELDS = ['cols','rows','orient','autoGrid','showHeader','showNo','showTitle','showPageNo','descLines','fitDefault','autoDate','docTitle','titleSize','titleGap','badgeGap','sideMargin','bottomMargin','bTitleSize','descSize','descAlignH','descAlignV'];
+  const SETTING_FIELDS = ['cols','rows','orient','autoGrid','showHeader','showNo','showTitle','showPageNo','descLines','fitDefault','autoDate','docTitle','titleSize','titleGap','badgeGap','topMargin','sideMargin','bottomMargin','bTitleSize','descSize','descAlignH','descAlignV'];
   function saveSettings() {
     try {
       const o = {};
@@ -347,7 +348,7 @@
     const pp = perPage(), pc = pageCount();
     let html = '';
     for (let p = 0; p < pc; p++) {
-      html += `<div class="page" style="width:${pw}mm;height:${ph}mm;padding-left:${S.sideMargin}mm;padding-right:${S.sideMargin}mm;padding-bottom:${S.bottomMargin}mm">`;
+      html += `<div class="page" style="width:${pw}mm;height:${ph}mm;padding-top:${S.topMargin}mm;padding-left:${S.sideMargin}mm;padding-right:${S.sideMargin}mm;padding-bottom:${S.bottomMargin}mm">`;
       if (S.showHeader) {
         html += `<div class="pg-head" style="margin-bottom:${S.titleGap}mm">
           <div class="pg-title" style="font-size:${S.titleSize}pt" contenteditable="true" data-k="docTitle" data-ph="제목 입력">${esc(S.docTitle)}</div>
@@ -607,6 +608,8 @@
     $('titleSizeTxt').textContent = S.titleSize + 'pt';
     $('titleGap').value = S.titleGap;
     $('badgeGap').value = S.badgeGap;
+    $('topMargin').value = S.topMargin;
+    $('topMarginTxt').textContent = S.topMargin + 'mm';
     $('sideMargin').value = S.sideMargin;
     $('bottomMargin').value = S.bottomMargin;
     $('bottomMarginTxt').textContent = S.bottomMargin + 'mm';
@@ -667,6 +670,12 @@
     S.badgeGap = +e.target.value;
     $('badgeGapTxt').textContent = S.badgeGap + 'mm';
     pagesEl.querySelectorAll('.grid').forEach(o => o.style.gap = S.badgeGap + 'mm');
+    saveSettings();
+  });
+  $('topMargin').addEventListener('input', e => {
+    S.topMargin = +e.target.value;
+    $('topMarginTxt').textContent = S.topMargin + 'mm';
+    pagesEl.querySelectorAll('.page').forEach(o => o.style.paddingTop = S.topMargin + 'mm');
     saveSettings();
   });
   $('sideMargin').addEventListener('input', e => {
