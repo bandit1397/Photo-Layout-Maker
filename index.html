@@ -149,6 +149,7 @@
   <div class="sec">
     <h2>맨 위 제목</h2>
     <div class="row"><input type="text" id="docTitleIn" placeholder="예: 사 진 대 지 / 현장 사진 / 증거물 사진"></div>
+    <div class="row">글자 크기 <input type="range" id="titleSize" min="12" max="40" value="20" class="grow"> <span id="titleSizeTxt">20pt</span></div>
     <div class="row"><input type="text" id="docSubIn" placeholder="부제 (사건번호·피의자·장소 등, 비워두면 인쇄 안 됨)"></div>
     <div class="hint">용지 위 제목을 직접 클릭해서 고쳐도 됩니다. 제목은 다음에 열 때도 유지됩니다.</div>
   </div>
@@ -268,6 +269,7 @@
   const S = {
     docTitle: '사 진 대 지',
     docSub: '',
+    titleSize: 20,
     count: 4, cols: 2, rows: 2, orient: 'portrait', autoGrid: true,
     showHeader: true, showNo: true, showTitle: true, showPageNo: true, descLines: 2,
     fitDefault: 'contain', autoDate: true,
@@ -301,7 +303,7 @@
   function pageCount() { return Math.max(1, Math.ceil(S.count / perPage())); }
 
   // ---------- 설정 저장(사진 제외) ----------
-  const SETTING_FIELDS = ['cols','rows','orient','autoGrid','showHeader','showNo','showTitle','showPageNo','descLines','fitDefault','autoDate','docTitle'];
+  const SETTING_FIELDS = ['cols','rows','orient','autoGrid','showHeader','showNo','showTitle','showPageNo','descLines','fitDefault','autoDate','docTitle','titleSize'];
   function saveSettings() {
     try {
       const o = {};
@@ -338,7 +340,7 @@
       html += `<div class="page" style="width:${pw}mm;height:${ph}mm">`;
       if (S.showHeader) {
         html += `<div class="pg-head">
-          <div class="pg-title" contenteditable="true" data-k="docTitle" data-ph="제목 입력">${esc(S.docTitle)}</div>
+          <div class="pg-title" style="font-size:${S.titleSize}pt" contenteditable="true" data-k="docTitle" data-ph="제목 입력">${esc(S.docTitle)}</div>
           <div class="pg-sub" contenteditable="true" data-k="docSub" data-ph="(사건번호·피의자·장소 등 입력, 비워두면 인쇄되지 않음)">${esc(S.docSub)}</div>
         </div>`;
       }
@@ -586,6 +588,8 @@
   function syncSide() {
     if (document.activeElement !== $('docTitleIn')) $('docTitleIn').value = S.docTitle;
     if (document.activeElement !== $('docSubIn')) $('docSubIn').value = S.docSub;
+    $('titleSize').value = S.titleSize;
+    $('titleSizeTxt').textContent = S.titleSize + 'pt';
     $('count').value = S.count;
     $('cols').value = S.cols;
     $('rows').value = S.rows;
@@ -623,6 +627,12 @@
       pagesEl.querySelectorAll(`[data-k="${k}"]`).forEach(o => o.textContent = S[k]);
       saveSettings();
     });
+  });
+  $('titleSize').addEventListener('input', e => {
+    S.titleSize = +e.target.value;
+    $('titleSizeTxt').textContent = S.titleSize + 'pt';
+    pagesEl.querySelectorAll('.pg-title').forEach(o => o.style.fontSize = S.titleSize + 'pt');
+    saveSettings();
   });
   $('count').addEventListener('change', e => setCount(+e.target.value));
   $('cntUp').onclick = () => setCount(S.count + 1);
