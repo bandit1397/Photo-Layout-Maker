@@ -150,6 +150,7 @@
     <h2>맨 위 제목</h2>
     <div class="row"><input type="text" id="docTitleIn" placeholder="예: 사 진 대 지 / 현장 사진 / 증거물 사진"></div>
     <div class="row">글자 크기 <input type="range" id="titleSize" min="12" max="40" value="20" class="grow"> <span id="titleSizeTxt">20pt</span></div>
+    <div class="row">제목 아래 여백 <input type="range" id="titleGap" min="0" max="30" value="4" class="grow"> <span id="titleGapTxt">4mm</span></div>
     <div class="hint">용지 위 제목을 직접 클릭해서 고쳐도 됩니다. 제목은 다음에 열 때도 유지됩니다.</div>
   </div>
 
@@ -275,7 +276,7 @@
 
   const S = {
     docTitle: '사 진 대 지',
-    titleSize: 20, bTitleSize: 10.5, descSize: 10, descAlignH: 'center', descAlignV: 'center',
+    titleSize: 20, titleGap: 4, bTitleSize: 10.5, descSize: 10, descAlignH: 'center', descAlignV: 'center',
     count: 4, cols: 2, rows: 2, orient: 'portrait', autoGrid: true,
     showHeader: true, showNo: true, showTitle: true, showPageNo: true, descLines: 2,
     fitDefault: 'contain', autoDate: true,
@@ -309,7 +310,7 @@
   function pageCount() { return Math.max(1, Math.ceil(S.count / perPage())); }
 
   // ---------- 설정 저장(사진 제외) ----------
-  const SETTING_FIELDS = ['cols','rows','orient','autoGrid','showHeader','showNo','showTitle','showPageNo','descLines','fitDefault','autoDate','docTitle','titleSize','bTitleSize','descSize','descAlignH','descAlignV'];
+  const SETTING_FIELDS = ['cols','rows','orient','autoGrid','showHeader','showNo','showTitle','showPageNo','descLines','fitDefault','autoDate','docTitle','titleSize','titleGap','bTitleSize','descSize','descAlignH','descAlignV'];
   function saveSettings() {
     try {
       const o = {};
@@ -345,7 +346,7 @@
     for (let p = 0; p < pc; p++) {
       html += `<div class="page" style="width:${pw}mm;height:${ph}mm">`;
       if (S.showHeader) {
-        html += `<div class="pg-head">
+        html += `<div class="pg-head" style="margin-bottom:${S.titleGap}mm">
           <div class="pg-title" style="font-size:${S.titleSize}pt" contenteditable="true" data-k="docTitle" data-ph="제목 입력">${esc(S.docTitle)}</div>
         </div>`;
       }
@@ -598,6 +599,8 @@
     document.querySelectorAll('[data-av]').forEach(b => b.classList.toggle('on', b.dataset.av === S.descAlignV));
     $('titleSize').value = S.titleSize;
     $('titleSizeTxt').textContent = S.titleSize + 'pt';
+    $('titleGap').value = S.titleGap;
+    $('titleGapTxt').textContent = S.titleGap + 'mm';
     $('count').value = S.count;
     $('cols').value = S.cols;
     $('rows').value = S.rows;
@@ -640,6 +643,12 @@
     S.titleSize = +e.target.value;
     $('titleSizeTxt').textContent = S.titleSize + 'pt';
     pagesEl.querySelectorAll('.pg-title').forEach(o => o.style.fontSize = S.titleSize + 'pt');
+    saveSettings();
+  });
+  $('titleGap').addEventListener('input', e => {
+    S.titleGap = +e.target.value;
+    $('titleGapTxt').textContent = S.titleGap + 'mm';
+    pagesEl.querySelectorAll('.pg-head').forEach(o => o.style.marginBottom = S.titleGap + 'mm');
     saveSettings();
   });
   $('count').addEventListener('change', e => setCount(+e.target.value));
