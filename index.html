@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사진대지 만들기</title>
+<style id="pagestyle">@page { size: A4 portrait; margin: 0; }</style>
+<style>
+  :root {
+    --ui-bg: #f3f4f6;
+    --ui-panel: #ffffff;
+    --ui-line: #d6d9de;
+    --ui-text: #1f2328;
+    --ui-sub: #5b6470;
+    --ui-accent: #1d4ed8;
+    --ui-accent-soft: #e3ebff;
+    --paper: #ffffff;
+    --ink: #000000;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    background: var(--ui-bg);
+    color: var(--ui-text);
+    display: flex;
+  }
+
+  /* ---------- 왼쪽 설정 패널 ---------- */
+  #side {
+    width: 310px; flex: none; height: 100vh; overflow-y: auto;
+    background: var(--ui-panel); border-right: 1px solid var(--ui-line);
+    padding: 14px 14px 40px; font-size: 13px;
+  }
+  #side h1 { font-size: 17px; margin: 2px 0 2px; }
+  #side .lead { color: var(--ui-sub); margin: 0 0 10px; font-size: 12px; }
+  .sec { border-top: 1px solid var(--ui-line); padding: 12px 0 4px; }
+  .sec h2 { font-size: 13px; margin: 0 0 8px; color: var(--ui-accent); }
+  .row { display: flex; align-items: center; gap: 6px; margin: 6px 0; flex-wrap: wrap; }
+  .row label { cursor: pointer; }
+  .row .grow { flex: 1; }
+  input[type=number] { width: 58px; padding: 4px; font-size: 14px; border: 1px solid var(--ui-line); border-radius: 4px; }
+  input[type=text] { width: 100%; padding: 5px 6px; font-size: 13px; border: 1px solid var(--ui-line); border-radius: 4px; }
+  select { padding: 4px; font-size: 13px; }
+  button {
+    font: inherit; cursor: pointer; border: 1px solid var(--ui-line); background: #fff;
+    border-radius: 5px; padding: 5px 9px; color: var(--ui-text);
+  }
+  button:hover { border-color: var(--ui-accent); }
+  button.on { background: var(--ui-accent-soft); border-color: var(--ui-accent); color: var(--ui-accent); font-weight: bold; }
+  button.primary { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); font-weight: bold; }
+  button.wide { width: 100%; padding: 8px; margin: 3px 0; }
+  .big-count { display: flex; align-items: center; gap: 4px; }
+  .big-count input { width: 64px; font-size: 18px; text-align: center; font-weight: bold; }
+  .big-count button { width: 32px; height: 32px; font-size: 18px; padding: 0; }
+  .presets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 6px 0; }
+  .preset { padding: 4px 2px 3px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; }
+  .preset .mini { display: grid; gap: 1px; width: 22px; height: 30px; }
+  .preset .mini.land { width: 30px; height: 22px; }
+  .preset .mini i { background: #9aa3ae; display: block; }
+  .preset.on .mini i { background: var(--ui-accent); }
+  .summary { background: var(--ui-bg); border-radius: 5px; padding: 6px 8px; font-size: 12px; color: var(--ui-sub); }
+  .summary b { color: var(--ui-text); }
+  .tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .tools button { padding: 6px 2px; font-size: 12px; }
+  .swatches { display: flex; gap: 6px; }
+  .sw { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #999; padding: 0; }
+  .sw.on { box-shadow: 0 0 0 2px var(--ui-accent); }
+  .hint { color: var(--ui-sub); font-size: 11.5px; line-height: 1.5; margin: 4px 0; }
+  .notice { background: #fff7e0; border: 1px solid #f0d58a; border-radius: 5px; padding: 7px 8px; font-size: 11.5px; line-height: 1.5; }
+
+  /* ---------- 미리보기 영역 ---------- */
+  #main { flex: 1; height: 100vh; overflow: auto; }
+  #viewbar {
+    position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px;
+    padding: 8px 16px; background: rgba(243,244,246,.95); border-bottom: 1px solid var(--ui-line); font-size: 13px;
+  }
+  #viewbar .msg { color: var(--ui-sub); flex: 1; }
+  #pages { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+
+  /* ---------- A4 용지 ---------- */
+  .page {
+    background: var(--paper); color: var(--ink); position: relative;
+    box-shadow: 0 1px 4px rgba(0,0,0,.25); padding: 12mm; display: flex; flex-direction: column;
+    flex: none;
+  }
+  .pg-head { text-align: center; margin-bottom: 4mm; flex: none; }
+  .pg-title { font-size: 20pt; font-weight: bold; letter-spacing: 2pt; line-height: 1.3; outline: none; min-height: 1.3em; }
+  .pg-sub { font-size: 10.5pt; line-height: 1.4; outline: none; min-height: 1.4em; margin-top: 1mm; }
+  .pg-foot { position: absolute; bottom: 5mm; left: 0; right: 0; text-align: center; font-size: 9pt; }
+  .grid { flex: 1; display: grid; gap: 5mm; min-height: 0; }
+
+  .badge { border: 0.35mm solid var(--ink); display: flex; flex-direction: column; min-height: 0; min-width: 0; background: #fff; }
+  .b-title {
+    flex: none; height: 7.5mm; border-bottom: 0.25mm solid var(--ink); display: flex; align-items: center;
+    padding: 0 2mm; gap: 2mm; font-size: 10.5pt; font-weight: bold; overflow: hidden; white-space: nowrap;
+  }
+  .b-no { flex: none; }
+  .b-tt { flex: 1; outline: none; overflow: hidden; min-width: 2em; }
+  .b-frame { flex: 1; position: relative; overflow: hidden; min-height: 0; background: #fff; touch-action: none; }
+  .b-layer { position: absolute; }
+  .b-layer img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; -webkit-user-drag: none; }
+  .b-layer svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  .b-desc {
+    flex: none; border-top: 0.25mm solid var(--ink); padding: 1.2mm 2mm; font-size: 10pt; line-height: 5.2mm;
+    outline: none; overflow: hidden; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere;
+  }
+  [contenteditable]:empty::before { content: attr(data-ph); color: #aab; font-weight: normal; }
+  [contenteditable]:focus { background: #fffbe6; }
+
+  .ph {
+    position: absolute; inset: 2mm; border: 2px dashed #b8bfc8; border-radius: 4px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; color: #8a94a0; font-size: 12px; text-align: center; gap: 4px; cursor: pointer;
+  }
+  .ph .ic { font-size: 26px; }
+  .b-frame.over .ph, .b-frame.over { outline: 3px solid var(--ui-accent); outline-offset: -3px; }
+  .b-frame.has { cursor: grab; }
+  body.t-draw .b-frame.has { cursor: crosshair; }
+  body.t-erase .b-frame.has { cursor: not-allowed; }
+  .b-tools {
+    position: absolute; top: 3px; right: 3px; display: none; gap: 2px; flex-wrap: wrap; justify-content: flex-end;
+    max-width: 96%;
+  }
+  .b-frame.has:hover .b-tools { display: flex; }
+  body.t-draw .b-tools, body.t-erase .b-tools { display: none !important; }
+  .b-tools button { padding: 2px 6px; font-size: 11px; background: rgba(255,255,255,.92); border-color: #888; }
+  .b-info { position: absolute; left: 3px; bottom: 3px; font-size: 10px; background: rgba(255,255,255,.85); padding: 1px 4px; border-radius: 3px; display: none; color: #333; }
+  .b-frame.has:hover .b-info { display: block; }
+
+  @media print {
+    body { display: block; background: #fff; }
+    #side, #viewbar, .ph, .b-tools, .b-info { display: none !important; }
+    #main { height: auto; overflow: visible; }
+    #pages { padding: 0; gap: 0; display: block; zoom: 1 !important; }
+    .page { box-shadow: none; margin: 0; break-after: page; page-break-after: always; overflow: hidden; }
+    .page:last-child { break-after: auto; page-break-after: auto; }
+    [contenteditable]:empty::before { content: none; }
+    [contenteditable]:focus { background: transparent; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<aside id="side">
+  <h1>사진대지 만들기</h1>
+  <p class="lead">사건 현장 사진을 A4 사진대지로 정리합니다.</p>
+
+  <div class="sec">
+    <h2>① 사진 수와 배치</h2>
+    <div class="row">
+      <span class="grow">전체 사진 수</span>
+      <div class="big-count">
+        <button id="cntDown" title="한 장 줄이기">−</button>
+        <input id="count" type="number" min="1" max="200" value="4">
+        <button id="cntUp" title="한 장 늘리기">＋</button>
+      </div>
+    </div>
+    <div class="row"><label><input type="checkbox" id="autoGrid" checked> 사진 수에 맞게 자동 배치</label></div>
+    <div class="hint">한 장(A4)에 들어갈 배치를 고르세요. 넘치는 사진은 다음 장으로 넘어갑니다.</div>
+    <div class="presets" id="presets"></div>
+    <div class="row">
+      가로 <input id="cols" type="number" min="1" max="6" value="2"> ×
+      세로 <input id="rows" type="number" min="1" max="6" value="2">
+    </div>
+    <div class="row">
+      용지
+      <button id="oPortrait" class="on">세로</button>
+      <button id="oLandscape">가로</button>
+    </div>
+    <div class="summary" id="summary"></div>
+  </div>
+
+  <div class="sec">
+    <h2>② 사진 넣기</h2>
+    <button class="wide primary" id="bulkBtn">사진 여러 장 한꺼번에 넣기</button>
+    <input type="file" id="bulkFile" accept="image/*" multiple hidden>
+    <input type="file" id="oneFile" accept="image/*" hidden>
+    <div class="hint">
+      • 사진 파일을 배지 위로 끌어다 놓으면 그 칸에 크기가 자동으로 맞춰집니다.<br>
+      • 여러 장을 한 번에 끌어다 놓으면 빈 칸부터 순서대로 채워지고, 칸이 모자라면 자동으로 늘어납니다.<br>
+      • 사진 위에서 마우스 휠 = 확대/축소, 끌기 = 위치 이동.
+    </div>
+    <div class="row">새 사진 넣는 방식
+      <select id="fitDefault">
+        <option value="contain">맞춤 (잘림 없음)</option>
+        <option value="cover">채우기 (칸 가득, 일부 잘림)</option>
+      </select>
+    </div>
+    <div class="row"><label><input type="checkbox" id="autoDate" checked> 설명에 촬영일시 자동 기입</label></div>
+  </div>
+
+  <div class="sec">
+    <h2>③ 사진 위 표시</h2>
+    <div class="tools" id="tools">
+      <button data-t="move" class="on" title="사진 이동·확대">✋ 이동</button>
+      <button data-t="arrow" title="끌어서 화살표">➜ 화살표</button>
+      <button data-t="ellipse" title="끌어서 원">◯ 원</button>
+      <button data-t="rect" title="끌어서 사각형">▭ 사각형</button>
+      <button data-t="num" title="클릭하면 ①②③ 번호">① 번호</button>
+      <button data-t="text" title="클릭한 곳에 글자">가 글자</button>
+      <button data-t="pen" title="자유롭게 그리기">✎ 펜</button>
+      <button data-t="erase" title="클릭한 표시 지우기">⌫ 지우개</button>
+    </div>
+    <div class="row" id="textRow">
+      <input type="text" id="markText" placeholder="표시할 글자 (예: 사건 발생 위치)" value="사건 발생 위치">
+    </div>
+    <div class="row">색 <div class="swatches" id="swatches"></div></div>
+    <div class="row">선 굵기 <input type="range" id="thick" min="1" max="10" value="4" class="grow"></div>
+    <div class="row">글자 크기 <input type="range" id="tsize" min="25" max="140" value="55" class="grow"></div>
+    <button class="wide" id="undoBtn">↶ 표시 되돌리기 (Ctrl+Z)</button>
+    <div class="hint">표시는 사진에 붙어 있어서 사진을 옮기거나 확대해도 같은 위치를 따라갑니다. 원본 사진 파일은 바뀌지 않습니다.</div>
+  </div>
+
+  <div class="sec">
+    <h2>④ 배지 모양</h2>
+    <div class="row"><label><input type="checkbox" id="showHeader" checked> 맨 위 제목(사진대지) 표시</label></div>
+    <div class="row"><label><input type="checkbox" id="showNo" checked> 배지에 "사진 1, 2…" 번호 표시</label></div>
+    <div class="row"><label><input type="checkbox" id="showTitle" checked> 배지 제목줄 표시</label></div>
+    <div class="row"><label><input type="checkbox" id="showPageNo" checked> 쪽 번호 표시</label></div>
+    <div class="row">사진 설명 줄 수
+      <select id="descLines">
+        <option value="0">없음</option><option value="1">1줄</option><option value="2" selected>2줄</option>
+        <option value="3">3줄</option><option value="4">4줄</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>⑤ 출력 · 저장</h2>
+    <button class="wide primary" id="printBtn">🖨 인쇄 / PDF로 저장</button>
+    <div class="hint">인쇄 창에서 대상을 "PDF로 저장"으로 고르면 PDF 파일이 됩니다. 배율은 "기본값(100%)", 여백은 "없음"을 권장합니다.</div>
+    <button class="wide" id="saveBtn">💾 작업 파일 저장 (.json)</button>
+    <button class="wide" id="loadBtn">📂 작업 파일 불러오기</button>
+    <input type="file" id="loadFile" accept=".json,application/json" hidden>
+    <button class="wide" id="newBtn">🗋 새로 만들기</button>
+  </div>
+
+  <div class="notice">
+    이 프로그램은 인터넷으로 사진을 보내지 않습니다. 모든 처리는 이 컴퓨터의 브라우저 안에서만 이루어집니다.
+  </div>
+</aside>
+
+<main id="main">
+  <div id="viewbar">
+    <span class="msg" id="msg">제목·사진 설명은 용지 위에서 바로 클릭해 입력하세요.</span>
+    화면 배율 <input type="range" id="viewZoom" min="40" max="150" value="90"> <span id="viewZoomTxt">90%</span>
+  </div>
+  <div id="pages"></div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- 상태 ----------
+  const PRESETS = [[1,1],[1,2],[2,1],[2,2],[1,3],[2,3],[3,2],[3,3],[2,4],[3,4]];
+  const COLORS = ['#e60012', '#ffd400', '#0050ff', '#00a03c', '#000000', '#ffffff'];
+  const SETTINGS_KEY = 'photo-layout-maker.settings';
+
+  const S = {
+    docTitle: '사 진 대 지',
+    docSub: '',
+    count: 4, cols: 2, rows: 2, orient: 'portrait', autoGrid: true,
+    showHeader: true, showNo: true, showTitle: true, showPageNo: true, descLines: 2,
+    fitDefault: 'contain', autoDate: true,
+    badges: []
+  };
+  const UI = { tool: 'move', color: COLORS[0], thick: 4, tsize: 55, zoom: 90 };
+  const history = [];   // { b, marks } : 표시 되돌리기용
+  let drag = null;
+  let pickTarget = 0;
+
+  const $ = (id) => document.getElementById(id);
+  const pagesEl = $('pages');
+
+  function newBadge() {
+    return { title: '', desc: '', img: null, fit: S.fitDefault, zoom: 1, ox: 0, oy: 0, marks: [] };
+  }
+  function ensureBadges(n) {
+    while (S.badges.length < n) S.badges.push(newBadge());
+  }
+
+  function suggestGrid(n) {
+    if (n <= 1) return [1, 1];
+    if (n === 2) return [1, 2];
+    if (n === 3) return [1, 3];
+    if (n === 4) return [2, 2];
+    if (n <= 6) return [2, 3];
+    return [3, 3];
+  }
+
+  function perPage() { return S.cols * S.rows; }
+  function pageCount() { return Math.max(1, Math.ceil(S.count / perPage())); }
+
+  // ---------- 설정 저장(사진 제외) ----------
+  const SETTING_FIELDS = ['cols','rows','orient','autoGrid','showHeader','showNo','showTitle','showPageNo','descLines','fitDefault','autoDate','docTitle'];
+  function saveSettings() {
+    try {
+      const o = {};
+      SETTING_FIELDS.forEach(k => o[k] = S[k]);
+      o.zoom = UI.zoom;
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(o));
+    } catch (e) { /* 저장 불가 환경 무시 */ }
+  }
+  function loadSettings() {
+    try {
+      const o = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
+      if (!o) return;
+      SETTING_FIELDS.forEach(k => { if (k in o) S[k] = o[k]; });
+      if (o.zoom) UI.zoom = o.zoom;
+    } catch (e) { /* 무시 */ }
+  }
+
+  // ---------- 화면 그리기 ----------
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function render() {
+    ensureBadges(S.count);
+    const land = S.orient === 'landscape';
+    const pw = land ? 297 : 210, ph = land ? 210 : 297;
+    $('pagestyle').textContent = `@page { size: A4 ${S.orient}; margin: 0; }`;
+    pagesEl.style.zoom = UI.zoom / 100;
+
+    const descH = S.descLines > 0 ? (S.descLines * 5.2 + 2.4) : 0;
+    const pp = perPage(), pc = pageCount();
+    let html = '';
+    for (let p = 0; p < pc; p++) {
+      html += `<div class="page" style="width:${pw}mm;height:${ph}mm">`;
+      if (S.showHeader) {
+        html += `<div class="pg-head">
+          <div class="pg-title" contenteditable="true" data-k="docTitle" data-ph="제목 입력">${esc(S.docTitle)}</div>
+          <div class="pg-sub" contenteditable="true" data-k="docSub" data-ph="(사건번호·피의자·장소 등 입력, 비워두면 인쇄되지 않음)">${esc(S.docSub)}</div>
+        </div>`;
+      }
+      html += `<div class="grid" style="grid-template-columns:repeat(${S.cols},minmax(0,1fr));grid-template-rows:repeat(${S.rows},minmax(0,1fr))">`;
+      for (let k = 0; k < pp; k++) {
+        const i = p * pp + k;
+        if (i >= S.count) break;
+        const b = S.badges[i];
+        html += `<div class="badge" data-i="${i}">`;
+        if (S.showTitle) {
+          html += `<div class="b-title">${S.showNo ? `<span class="b-no">사진 ${i + 1}</span>` : ''}
+            <span class="b-tt" contenteditable="true" data-b="title" data-i="${i}" data-ph="제목">${esc(b.title)}</span></div>`;
+        }
+        html += `<div class="b-frame${b.img ? ' has' : ''}" data-i="${i}">`;
+        if (b.img) {
+          html += `<div class="b-layer"><img src="${b.img.src}" alt="" draggable="false"><svg xmlns="http://www.w3.org/2000/svg"></svg></div>
+            <div class="b-tools">
+              <button data-a="left" title="앞 칸과 바꾸기">◀</button>
+              <button data-a="right" title="뒤 칸과 바꾸기">▶</button>
+              <button data-a="fit" title="맞춤/채우기 전환">${b.fit === 'contain' ? '채우기' : '맞춤'}</button>
+              <button data-a="zin" title="확대">＋</button>
+              <button data-a="zout" title="축소">－</button>
+              <button data-a="reset" title="크기·위치 처음대로">원위치</button>
+              <button data-a="clearMarks" title="이 사진의 표시 모두 지우기">표시삭제</button>
+              <button data-a="replace" title="다른 사진으로 바꾸기">교체</button>
+              <button data-a="remove" title="사진 빼기">✕</button>
+            </div>
+            <div class="b-info">${esc(b.img.name || '')} · ${b.img.w}×${b.img.h}</div>`;
+        } else {
+          html += `<div class="ph"><span class="ic">🖼</span>사진을 여기로 끌어다 놓거나<br>클릭해서 고르세요</div>`;
+        }
+        html += `</div>`;
+        if (descH) {
+          html += `<div class="b-desc" style="height:${descH}mm" contenteditable="true" data-b="desc" data-i="${i}" data-ph="사진 설명">${esc(b.desc)}</div>`;
+        }
+        html += `</div>`;
+      }
+      html += `</div>`;
+      if (S.showPageNo && pc > 1) html += `<div class="pg-foot">- ${p + 1} / ${pc} -</div>`;
+      html += `</div>`;
+    }
+    pagesEl.innerHTML = html;
+
+    // contenteditable plaintext 지원 시 사용
+    pagesEl.querySelectorAll('[contenteditable]').forEach(el => {
+      try { el.contentEditable = 'plaintext-only'; } catch (e) { /* 미지원 브라우저 */ }
+    });
+    pagesEl.querySelectorAll('.b-frame.has').forEach(fr => {
+      const i = +fr.dataset.i;
+      const img = fr.querySelector('img');
+      const go = () => { layoutLayer(i); drawMarks(i); };
+      if (img.complete) go(); else img.addEventListener('load', go, { once: true });
+    });
+    syncSide();
+    saveSettings();
+  }
+
+  function frameOf(i) { return pagesEl.querySelector(`.b-frame[data-i="${i}"]`); }
+
+  // 사진을 칸 크기에 맞게 배치 (모든 값은 칸 대비 %라서 화면·인쇄 모두 동일)
+  function layerBox(b, fr) {
+    const fa = fr.clientWidth / Math.max(1, fr.clientHeight);
+    const ia = b.img.w / b.img.h;
+    let w, h;
+    if ((b.fit === 'contain') === (ia > fa)) { w = 100; h = fa / ia * 100; }
+    else { h = 100; w = ia / fa * 100; }
+    w *= b.zoom; h *= b.zoom;
+    return { w, h, l: 50 + b.ox - w / 2, t: 50 + b.oy - h / 2 };
+  }
+  function layoutLayer(i) {
+    const fr = frameOf(i), b = S.badges[i];
+    if (!fr || !b.img) return;
+    const L = fr.querySelector('.b-layer');
+    const r = layerBox(b, fr);
+    L.style.cssText = `width:${r.w}%;height:${r.h}%;left:${r.l}%;top:${r.t}%`;
+  }
+
+  // ---------- 표시(화살표 등) ----------
+  // 좌표는 사진 기준: 가로 1000, 세로 1000/비율
+  function imgH(b) { return 1000 * b.img.h / b.img.w; }
+
+  function markSVG(m) {
+    const c = esc(m.c);
+    const sw = m.w * 3;
+    switch (m.t) {
+      case 'arrow': {
+        const dx = m.x2 - m.x1, dy = m.y2 - m.y1, len = Math.hypot(dx, dy) || 1;
+        const a = Math.atan2(dy, dx), hl = Math.min(len, sw * 3.2 + 18);
+        const bx = m.x2 - Math.cos(a) * hl * 0.8, by = m.y2 - Math.sin(a) * hl * 0.8;
+        const p1 = [m.x2 - hl * Math.cos(a - 0.42), m.y2 - hl * Math.sin(a - 0.42)];
+        const p2 = [m.x2 - hl * Math.cos(a + 0.42), m.y2 - hl * Math.sin(a + 0.42)];
+        return `<line x1="${m.x1}" y1="${m.y1}" x2="${bx}" y2="${by}" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+          <polygon points="${m.x2},${m.y2} ${p1} ${p2}" fill="${c}" stroke="${c}" stroke-width="${sw * 0.4}" stroke-linejoin="round"/>`;
+      }
+      case 'ellipse': {
+        const cx = (m.x1 + m.x2) / 2, cy = (m.y1 + m.y2) / 2;
+        return `<ellipse cx="${cx}" cy="${cy}" rx="${Math.abs(m.x2 - m.x1) / 2}" ry="${Math.abs(m.y2 - m.y1) / 2}" fill="none" stroke="${c}" stroke-width="${sw}"/>`;
+      }
+      case 'rect':
+        return `<rect x="${Math.min(m.x1, m.x2)}" y="${Math.min(m.y1, m.y2)}" width="${Math.abs(m.x2 - m.x1)}" height="${Math.abs(m.y2 - m.y1)}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+      case 'pen':
+        return `<polyline points="${m.pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      case 'text': {
+        const outline = m.c === '#ffffff' ? '#000' : '#fff';
+        return `<text x="${m.x}" y="${m.y}" font-size="${m.s}" font-weight="bold" fill="${c}" stroke="${outline}" stroke-width="${m.s * 0.14}" paint-order="stroke" stroke-linejoin="round" dominant-baseline="middle" font-family="Malgun Gothic, sans-serif">${esc(m.text)}</text>`;
+      }
+      case 'num': {
+        const r = m.s * 0.62, fg = (m.c === '#ffffff' || m.c === '#ffd400') ? '#000' : '#fff';
+        return `<circle cx="${m.x}" cy="${m.y}" r="${r}" fill="${c}" stroke="#fff" stroke-width="${r * 0.12}"/>
+          <text x="${m.x}" y="${m.y}" font-size="${r * 1.25}" font-weight="bold" fill="${fg}" text-anchor="middle" dominant-baseline="central" font-family="Arial, sans-serif">${m.n}</text>`;
+      }
+    }
+    return '';
+  }
+
+  function drawMarks(i) {
+    const fr = frameOf(i), b = S.badges[i];
+    if (!fr || !b.img) return;
+    const svg = fr.querySelector('svg');
+    svg.setAttribute('viewBox', `0 0 1000 ${imgH(b)}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.innerHTML = b.marks.map(markSVG).join('');
+  }
+
+  function markBox(m) {
+    if (m.t === 'pen') {
+      const xs = m.pts.map(p => p[0]), ys = m.pts.map(p => p[1]);
+      return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+    }
+    if (m.t === 'text') return [m.x, m.y - m.s / 2, m.x + m.s * 0.95 * [...m.text].length, m.y + m.s / 2];
+    if (m.t === 'num') { const r = m.s * 0.62; return [m.x - r, m.y - r, m.x + r, m.y + r]; }
+    return [Math.min(m.x1, m.x2), Math.min(m.y1, m.y2), Math.max(m.x1, m.x2), Math.max(m.y1, m.y2)];
+  }
+
+  function pushHistory(b) { history.push({ b, marks: JSON.parse(JSON.stringify(b.marks)) }); if (history.length > 200) history.shift(); }
+  function undo() {
+    const h = history.pop();
+    if (!h) { say('되돌릴 표시가 없습니다.'); return; }
+    h.b.marks = h.marks;
+    const i = S.badges.indexOf(h.b);
+    if (i >= 0) drawMarks(i);
+  }
+
+  function ptIn(i, e) {
+    const fr = frameOf(i), b = S.badges[i];
+    const r = fr.querySelector('.b-layer').getBoundingClientRect();
+    return { x: (e.clientX - r.left) / r.width * 1000, y: (e.clientY - r.top) / r.height * imgH(b) };
+  }
+
+  // ---------- 사진 불러오기 ----------
+  function exifDate(buf) {
+    try {
+      const v = new DataView(buf);
+      if (v.getUint16(0) !== 0xFFD8) return null;
+      let o = 2;
+      while (o + 10 < v.byteLength) {
+        const mk = v.getUint16(o);
+        if ((mk & 0xFF00) !== 0xFF00) return null;
+        const len = v.getUint16(o + 2);
+        if (mk === 0xFFE1 && v.getUint32(o + 4) === 0x45786966) {
+          const t = o + 10, le = v.getUint16(t) === 0x4949;
+          const g16 = p => v.getUint16(p, le), g32 = p => v.getUint32(p, le);
+          const str = e => {
+            const n = g32(e + 4), off = n > 4 ? t + g32(e + 8) : e + 8;
+            let s = '';
+            for (let k = 0; k < n - 1; k++) s += String.fromCharCode(v.getUint8(off + k));
+            return s;
+          };
+          const each = (p, cb) => { const n = g16(p); for (let k = 0; k < n; k++) cb(g16(p + 2 + k * 12), p + 2 + k * 12); };
+          let exifIfd = null, dt = null;
+          each(t + g32(t + 4), (tag, e) => { if (tag === 0x8769) exifIfd = t + g32(e + 8); if (tag === 0x0132) dt = str(e); });
+          if (exifIfd) each(exifIfd, (tag, e) => { if (tag === 0x9003) dt = str(e); });
+          return dt;
+        }
+        o += 2 + len;
+      }
+    } catch (e) { /* EXIF 없음 */ }
+    return null;
+  }
+  function fmtDate(dt) {
+    const m = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2})/.exec(dt || '');
+    return m ? `${m[1]}. ${m[2]}. ${m[3]}. ${m[4]}:${m[5]}` : null;
+  }
+
+  function readImage(file) {
+    return new Promise((resolve, reject) => {
+      const src = URL.createObjectURL(file);
+      const im = new Image();
+      im.onload = async () => {
+        let date = null;
+        try { date = fmtDate(exifDate(await file.slice(0, 262144).arrayBuffer())); } catch (e) { /* 무시 */ }
+        resolve({ src, w: im.naturalWidth, h: im.naturalHeight, name: file.name, date });
+      };
+      im.onerror = () => { URL.revokeObjectURL(src); reject(new Error(file.name)); };
+      im.src = src;
+    });
+  }
+
+  function putImage(i, img) {
+    const b = S.badges[i];
+    if (b.img && b.img.src.startsWith('blob:')) URL.revokeObjectURL(b.img.src);
+    Object.assign(b, { img, fit: S.fitDefault, zoom: 1, ox: 0, oy: 0, marks: [] });
+    if (S.autoDate && img.date && !b.desc.trim()) b.desc = `촬영일시: ${img.date}`;
+  }
+
+  // start 칸부터(빈 칸 우선) 여러 장 채우기
+  async function addFiles(files, start, onlyEmpty) {
+    files = [...files].filter(f => f.type.startsWith('image/'));
+    if (!files.length) { say('사진 파일이 아닙니다.'); return; }
+    // onlyEmpty: 사진이 없는 칸만 / 아니면 start 칸부터 차례로(기존 사진은 교체)
+    const slots = [];
+    for (let i = start; slots.length < files.length; i++) {
+      ensureBadges(i + 1);
+      if (!onlyEmpty || !S.badges[i].img) slots.push(i);
+    }
+    let fail = 0;
+    for (let k = 0; k < files.length; k++) {
+      try { putImage(slots[k], await readImage(files[k])); } catch (e) { fail++; }
+    }
+    const need = slots[slots.length - 1] + 1;
+    if (need > S.count) setCount(need, false);
+    render();
+    say(`사진 ${files.length - fail}장을 넣었습니다.` + (fail ? ` (${fail}장 열기 실패)` : ''));
+  }
+
+  function firstEmpty() {
+    for (let i = 0; i < S.count; i++) if (!S.badges[i] || !S.badges[i].img) return i;
+    return S.count;
+  }
+
+  // ---------- 개수·배치 ----------
+  function setCount(n, doRender = true) {
+    n = Math.max(1, Math.min(200, Math.round(n) || 1));
+    S.count = n;
+    if (S.autoGrid) [S.cols, S.rows] = suggestGrid(n);
+    if (doRender) render();
+  }
+  function setGrid(c, r) {
+    S.cols = Math.max(1, Math.min(6, c | 0 || 1));
+    S.rows = Math.max(1, Math.min(6, r | 0 || 1));
+    S.autoGrid = false;
+    render();
+  }
+
+  function syncSide() {
+    $('count').value = S.count;
+    $('cols').value = S.cols;
+    $('rows').value = S.rows;
+    $('autoGrid').checked = S.autoGrid;
+    $('oPortrait').classList.toggle('on', S.orient === 'portrait');
+    $('oLandscape').classList.toggle('on', S.orient === 'landscape');
+    ['showHeader','showNo','showTitle','showPageNo','autoDate'].forEach(k => $(k).checked = S[k]);
+    $('descLines').value = String(S.descLines);
+    $('fitDefault').value = S.fitDefault;
+    const land = S.orient === 'landscape';
+    $('presets').innerHTML = PRESETS.map(([c, r]) =>
+      `<button class="preset${c === S.cols && r === S.rows ? ' on' : ''}" data-c="${c}" data-r="${r}" title="가로 ${c} × 세로 ${r}">
+        <span class="mini${land ? ' land' : ''}" style="grid-template-columns:repeat(${c},1fr);grid-template-rows:repeat(${r},1fr)">${'<i></i>'.repeat(c * r)}</span>${c}×${r}</button>`).join('');
+    const pp = perPage(), pc = pageCount();
+    const last = S.count - pp * (pc - 1);
+    const filled = S.badges.slice(0, S.count).filter(b => b.img).length;
+    $('summary').innerHTML = `한 장에 <b>${pp}개</b> (가로 ${S.cols} × 세로 ${S.rows}) · 전체 <b>${S.count}개</b> → <b>A4 ${pc}장</b>` +
+      (pc > 1 && last !== pp ? `<br>마지막 장에는 ${last}개` : '') + `<br>사진 넣은 칸: ${filled} / ${S.count}`;
+    document.querySelectorAll('#tools button').forEach(bt => bt.classList.toggle('on', bt.dataset.t === UI.tool));
+    $('swatches').innerHTML = COLORS.map(c => `<button class="sw${c === UI.color ? ' on' : ''}" data-c="${c}" style="background:${c}" title="${c}"></button>`).join('');
+    document.body.className = UI.tool === 'move' ? '' : UI.tool === 'erase' ? 't-erase' : 't-draw';
+  }
+
+  let msgTimer;
+  function say(t) {
+    $('msg').textContent = t;
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => { $('msg').textContent = '제목·사진 설명은 용지 위에서 바로 클릭해 입력하세요.'; }, 5000);
+  }
+
+  // ---------- 사이드 패널 이벤트 ----------
+  $('count').addEventListener('change', e => setCount(+e.target.value));
+  $('cntUp').onclick = () => setCount(S.count + 1);
+  $('cntDown').onclick = () => setCount(S.count - 1);
+  $('autoGrid').onchange = e => { S.autoGrid = e.target.checked; if (S.autoGrid) [S.cols, S.rows] = suggestGrid(S.count); render(); };
+  $('cols').onchange = e => setGrid(+e.target.value, S.rows);
+  $('rows').onchange = e => setGrid(S.cols, +e.target.value);
+  $('presets').onclick = e => { const b = e.target.closest('.preset'); if (b) setGrid(+b.dataset.c, +b.dataset.r); };
+  $('oPortrait').onclick = () => { S.orient = 'portrait'; render(); };
+  $('oLandscape').onclick = () => { S.orient = 'landscape'; render(); };
+  ['showHeader','showNo','showTitle','showPageNo','autoDate'].forEach(k => $(k).onchange = e => { S[k] = e.target.checked; render(); });
+  $('descLines').onchange = e => { S.descLines = +e.target.value; render(); };
+  $('fitDefault').onchange = e => { S.fitDefault = e.target.value; saveSettings(); };
+
+  $('bulkBtn').onclick = () => $('bulkFile').click();
+  $('bulkFile').onchange = e => { addFiles(e.target.files, firstEmpty(), true); e.target.value = ''; };
+  $('oneFile').onchange = e => { if (e.target.files.length) addFiles(e.target.files, pickTarget, false); e.target.value = ''; };
+
+  $('tools').onclick = e => { const b = e.target.closest('button'); if (b) { UI.tool = b.dataset.t; syncSide(); } };
+  $('swatches').onclick = e => { const b = e.target.closest('.sw'); if (b) { UI.color = b.dataset.c; syncSide(); } };
+  $('thick').oninput = e => UI.thick = +e.target.value;
+  $('tsize').oninput = e => UI.tsize = +e.target.value;
+  $('undoBtn').onclick = undo;
+  $('viewZoom').value = UI.zoom;
+  $('viewZoom').oninput = e => { UI.zoom = +e.target.value; $('viewZoomTxt').textContent = UI.zoom + '%'; pagesEl.style.zoom = UI.zoom / 100; saveSettings(); };
+
+  $('printBtn').onclick = () => {
+    if (document.activeElement) document.activeElement.blur();
+    window.print();
+  };
+
+  // 작업 파일 저장: 사진까지 포함한 JSON
+  function blobToDataURL(src) {
+    if (src.startsWith('data:')) return Promise.resolve(src);
+    return fetch(src).then(r => r.blob()).then(bl => new Promise(res => {
+      const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(bl);
+    }));
+  }
+  $('saveBtn').onclick = async () => {
+    say('저장 파일을 만드는 중…');
+    const badges = [];
+    for (const b of S.badges.slice(0, S.count)) {
+      const c = JSON.parse(JSON.stringify(b));
+      if (b.img) c.img.src = await blobToDataURL(b.img.src);
+      badges.push(c);
+    }
+    const data = { app: 'photo-layout-maker', version: 1, savedAt: new Date().toISOString(), state: { ...S, badges } };
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const a = document.createElement('a');
+    const d = new Date();
+    const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+    a.href = URL.createObjectURL(blob);
+    a.download = `사진대지_${stamp}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    say('작업 파일을 저장했습니다. 나중에 [작업 파일 불러오기]로 이어서 작업할 수 있습니다.');
+  };
+  $('loadBtn').onclick = () => $('loadFile').click();
+  $('loadFile').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      if (data.app !== 'photo-layout-maker') throw new Error('형식');
+      Object.assign(S, data.state);
+      history.length = 0;
+      render();
+      say('작업 파일을 불러왔습니다.');
+    } catch (err) { say('이 파일은 불러올 수 없습니다.'); }
+  };
+  $('newBtn').onclick = () => {
+    if (S.badges.some(b => b.img) && !confirm('지금 작업을 지우고 새로 만들까요? (저장하지 않은 내용은 사라집니다)')) return;
+    S.badges.forEach(b => { if (b.img && b.img.src.startsWith('blob:')) URL.revokeObjectURL(b.img.src); });
+    S.badges = []; S.docSub = ''; history.length = 0;
+    setCount(4);
+  };
+
+  // ---------- 용지 위 이벤트 ----------
+  pagesEl.addEventListener('input', e => {
+    const el = e.target;
+    if (el.dataset.k) {
+      S[el.dataset.k] = el.textContent;
+      pagesEl.querySelectorAll(`[data-k="${el.dataset.k}"]`).forEach(o => { if (o !== el) o.textContent = el.textContent; });
+      if (el.dataset.k === 'docTitle') saveSettings();
+    } else if (el.dataset.b) {
+      S.badges[+el.dataset.i][el.dataset.b] = el.textContent;
+    }
+  });
+  // 붙여넣기는 글자만
+  pagesEl.addEventListener('paste', e => {
+    if (!e.target.closest('[contenteditable]')) return;
+    e.preventDefault();
+    document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
+  });
+  // 제목줄에서 Enter는 줄바꿈 대신 완료
+  pagesEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.matches('.b-tt, .pg-title')) { e.preventDefault(); e.target.blur(); }
+  });
+
+  pagesEl.addEventListener('click', e => {
+    const btn = e.target.closest('.b-tools button');
+    if (btn) { badgeAction(+btn.closest('.b-frame').dataset.i, btn.dataset.a); return; }
+    const fr = e.target.closest('.b-frame');
+    if (fr && !fr.classList.contains('has')) { pickTarget = +fr.dataset.i; $('oneFile').click(); }
+  });
+
+  function badgeAction(i, a) {
+    const b = S.badges[i];
+    switch (a) {
+      case 'fit': b.fit = b.fit === 'contain' ? 'cover' : 'contain'; b.zoom = 1; b.ox = b.oy = 0; render(); return;
+      case 'zin': b.zoom = Math.min(8, b.zoom * 1.2); break;
+      case 'zout': b.zoom = Math.max(0.2, b.zoom / 1.2); break;
+      case 'reset': b.zoom = 1; b.ox = b.oy = 0; break;
+      case 'clearMarks': if (b.marks.length) { pushHistory(b); b.marks = []; drawMarks(i); } return;
+      case 'replace': pickTarget = i; $('oneFile').click(); return;
+      case 'remove':
+        if (b.img.src.startsWith('blob:')) URL.revokeObjectURL(b.img.src);
+        Object.assign(b, { img: null, marks: [], zoom: 1, ox: 0, oy: 0 });
+        render(); return;
+      case 'left': case 'right': {
+        const j = a === 'left' ? i - 1 : i + 1;
+        if (j < 0 || j >= S.count) return;
+        [S.badges[i], S.badges[j]] = [S.badges[j], S.badges[i]];
+        render(); return;
+      }
+    }
+    layoutLayer(i);
+  }
+
+  // 마우스: 이동/그리기
+  pagesEl.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    const fr = e.target.closest('.b-frame.has');
+    if (!fr || e.target.closest('.b-tools')) return;
+    const i = +fr.dataset.i, b = S.badges[i];
+    e.preventDefault();
+    if (document.activeElement && document.activeElement.isContentEditable) document.activeElement.blur();
+    const p = ptIn(i, e);
+    const t = UI.tool;
+
+    if (t === 'move') {
+      fr.setPointerCapture(e.pointerId);
+      drag = { type: 'pan', i, fr, sx: e.clientX, sy: e.clientY, ox: b.ox, oy: b.oy };
+    } else if (t === 'erase') {
+      const pad = 15;
+      for (let k = b.marks.length - 1; k >= 0; k--) {
+        const [x1, y1, x2, y2] = markBox(b.marks[k]);
+        if (p.x >= x1 - pad && p.x <= x2 + pad && p.y >= y1 - pad && p.y <= y2 + pad) {
+          pushHistory(b); b.marks.splice(k, 1); drawMarks(i); return;
+        }
+      }
+    } else if (t === 'text') {
+      const text = $('markText').value.trim();
+      if (!text) { say('왼쪽 [표시할 글자] 칸에 글자를 먼저 입력하세요.'); $('markText').focus(); return; }
+      pushHistory(b);
+      b.marks.push({ t: 'text', x: p.x, y: p.y, text, c: UI.color, s: UI.tsize, w: UI.thick });
+      drawMarks(i);
+    } else if (t === 'num') {
+      const n = b.marks.filter(m => m.t === 'num').reduce((a, m) => Math.max(a, m.n), 0) + 1;
+      pushHistory(b);
+      b.marks.push({ t: 'num', x: p.x, y: p.y, n, c: UI.color, s: UI.tsize, w: UI.thick });
+      drawMarks(i);
+    } else {
+      fr.setPointerCapture(e.pointerId);
+      pushHistory(b);
+      const m = t === 'pen'
+        ? { t, pts: [[p.x, p.y]], c: UI.color, w: UI.thick }
+        : { t, x1: p.x, y1: p.y, x2: p.x, y2: p.y, c: UI.color, w: UI.thick };
+      b.marks.push(m);
+      drag = { type: 'draw', i, fr, m };
+    }
+  });
+
+  const onMove = e => {
+    if (!drag) return;
+    const b = S.badges[drag.i];
+    if (drag.type === 'pan') {
+      const r = drag.fr.getBoundingClientRect();
+      b.ox = drag.ox + (e.clientX - drag.sx) / r.width * 100;
+      b.oy = drag.oy + (e.clientY - drag.sy) / r.height * 100;
+      layoutLayer(drag.i);
+    } else {
+      const p = ptIn(drag.i, e);
+      if (drag.m.t === 'pen') drag.m.pts.push([Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10]);
+      else { drag.m.x2 = p.x; drag.m.y2 = p.y; }
+      drawMarks(drag.i);
+    }
+  };
+  pagesEl.addEventListener('pointermove', onMove);
+
+  const endDrag = e => {
+    if (drag && e.type === 'pointerup') onMove(e);   // 마지막 위치까지 반영
+    if (drag && drag.type === 'draw') {
+      const m = drag.m, b = S.badges[drag.i];
+      const tiny = m.t === 'pen' ? m.pts.length < 2 : Math.hypot(m.x2 - m.x1, m.y2 - m.y1) < 8;
+      if (tiny) { b.marks.pop(); history.pop(); drawMarks(drag.i); say('마우스를 누른 채로 끌어서 그리세요.'); }
+    }
+    drag = null;
+  };
+  pagesEl.addEventListener('pointerup', endDrag);
+  pagesEl.addEventListener('pointercancel', endDrag);
+
+  // 휠: 마우스 위치 기준 확대/축소
+  pagesEl.addEventListener('wheel', e => {
+    const fr = e.target.closest('.b-frame.has');
+    if (!fr || UI.tool !== 'move') return;
+    e.preventDefault();
+    const i = +fr.dataset.i, b = S.badges[i];
+    const r = fr.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width * 100, py = (e.clientY - r.top) / r.height * 100;
+    const nz = Math.max(0.2, Math.min(8, b.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
+    const k = nz / b.zoom;
+    b.ox = px - 50 - (px - 50 - b.ox) * k;
+    b.oy = py - 50 - (py - 50 - b.oy) * k;
+    b.zoom = nz;
+    layoutLayer(i);
+  }, { passive: false });
+
+  // 끌어다 놓기
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => e.preventDefault());
+  let overEl = null;
+  pagesEl.addEventListener('dragover', e => {
+    e.preventDefault();
+    const fr = e.target.closest('.b-frame');
+    if (fr !== overEl) { if (overEl) overEl.classList.remove('over'); overEl = fr; if (fr) fr.classList.add('over'); }
+  });
+  pagesEl.addEventListener('dragleave', e => {
+    if (!pagesEl.contains(e.relatedTarget) && overEl) { overEl.classList.remove('over'); overEl = null; }
+  });
+  pagesEl.addEventListener('drop', e => {
+    e.preventDefault();
+    if (overEl) { overEl.classList.remove('over'); overEl = null; }
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (!files || !files.length) return;
+    const fr = e.target.closest('.b-frame');
+    if (fr) addFiles(files, +fr.dataset.i, false);   // 놓은 칸부터
+    else addFiles(files, firstEmpty(), true);       // 용지 빈 곳: 빈 칸부터
+  });
+  window.addEventListener('drop', e => {
+    if (!pagesEl.contains(e.target) && e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files, firstEmpty(), true);
+  });
+
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.target.closest('[contenteditable], input, textarea')) {
+      e.preventDefault(); undo();
+    }
+    if (e.key === 'Escape' && UI.tool !== 'move') { UI.tool = 'move'; syncSide(); }
+  });
+
+  window.addEventListener('beforeunload', e => {
+    if (S.badges.some(b => b.img)) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  // ---------- 시작 ----------
+  loadSettings();
+  if (S.autoGrid) [S.cols, S.rows] = suggestGrid(S.count);
+  $('viewZoom').value = UI.zoom;
+  $('viewZoomTxt').textContent = UI.zoom + '%';
+  render();
+})();
+</script>
+</body>
+</html>
