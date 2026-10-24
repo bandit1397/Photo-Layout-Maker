@@ -44,7 +44,7 @@
   select { padding: 4px; font-size: 13px; }
   button {
     font: inherit; cursor: pointer; border: 1px solid var(--ui-line); background: #fff;
-    border-radius: 5px; padding: 5px 9px; color: var(--ui-text);
+    border-radius: 5px; padding: 5px 9px; color: var(--ui-text); touch-action: manipulation;
   }
   button:hover { border-color: var(--ui-accent); }
   button.on { background: var(--ui-accent-soft); border-color: var(--ui-accent); color: var(--ui-accent); font-weight: bold; }
@@ -96,7 +96,10 @@
   }
   .b-no { flex: none; }
   .b-tt { flex: 1; outline: none; overflow: hidden; min-width: 2em; }
-  .b-frame { flex: 1; position: relative; overflow: hidden; min-height: 0; background: #fff; touch-action: none; }
+  .b-frame { flex: 1; position: relative; overflow: hidden; min-height: 0; background: #fff; touch-action: pan-x pan-y pinch-zoom; }
+  /* 선택한 사진·그리기 중에는 터치를 화면 스크롤 대신 사진 조작에 사용 */
+  .b-frame.sel, body.t-draw .b-frame.has, body.t-erase .b-frame.has { touch-action: none; }
+  .b-frame.sel { outline: 3px solid var(--ui-accent); outline-offset: -3px; }
   .b-layer { position: absolute; }
   .b-layer img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; -webkit-user-drag: none; }
   .b-layer svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
@@ -127,9 +130,47 @@
   .b-info { position: absolute; left: 3px; bottom: 3px; font-size: 10px; background: rgba(255,255,255,.85); padding: 1px 4px; border-radius: 3px; display: none; color: #333; }
   .b-frame.has:hover .b-info { display: block; }
 
+  #menuBtn, #mbar, #backdrop { display: none; }
+  #mbar .strip { display: flex; gap: 4px; overflow-x: auto; align-items: center; -webkit-overflow-scrolling: touch; }
+  #mbar .strip button { flex: none; padding: 8px 10px; font-size: 13px; }
+  #mbar .strip b { flex: none; font-size: 12px; color: var(--ui-accent); padding: 0 2px; }
+  #selbar { display: none; flex-direction: column; gap: 5px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--ui-line); }
+  #selbar .fields { display: flex; gap: 5px; }
+  #selbar input, #selbar textarea { font: inherit; font-size: 16px; padding: 5px 7px; border: 1px solid var(--ui-line); border-radius: 5px; min-width: 0; }
+  #selbar input { flex: 0 0 34%; }
+  #selbar textarea { flex: 1; height: 38px; resize: none; }
+
+  /* ---------- 휴대폰·좁은 화면 ---------- */
+  @media (max-width: 820px) {
+    body { display: block; }
+    #side {
+      position: fixed; z-index: 30; left: 0; top: 0; height: 100vh; height: 100dvh; width: min(330px, 88vw);
+      transform: translateX(-102%); transition: transform .2s; box-shadow: 2px 0 14px rgba(0,0,0,.25); font-size: 14px;
+    }
+    body.side-open #side { transform: none; }
+    body.side-open #backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 25; }
+    #main { height: 100vh; height: 100dvh; }
+    #viewbar { padding: 6px 8px; gap: 6px; flex-wrap: wrap; }
+    #viewbar .msg { order: 5; flex-basis: 100%; font-size: 12px; }
+    #menuBtn { display: inline-block; font-weight: bold; }
+    #viewZoom { width: 80px; flex: 1; }
+    #pages { padding: 10px 6px 140px; gap: 10px; }
+    body.has-sel #pages { padding-bottom: 240px; }
+    .b-tools, .b-info { display: none !important; }
+    #mbar {
+      display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: #fff;
+      border-top: 1px solid var(--ui-line); box-shadow: 0 -2px 8px rgba(0,0,0,.08);
+      padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    }
+    body.has-sel #selbar { display: flex; }
+    input[type=range] { min-height: 28px; }
+    input[type=text], input[type=number], select { font-size: 16px; }
+  }
+
   @media print {
     body { display: block; background: #fff; }
-    #side, #viewbar, .ph, .b-tools, .b-info { display: none !important; }
+    #side, #viewbar, .ph, .b-tools, .b-info, #mbar, #backdrop { display: none !important; }
+    .b-frame.sel { outline: none; }
     #main { height: auto; overflow: visible; }
     #pages { padding: 0; gap: 0; display: block; zoom: 1 !important; }
     .page { box-shadow: none; margin: 0; break-after: page; page-break-after: always; overflow: hidden; }
@@ -257,17 +298,57 @@
   </div>
 
   <div class="notice">
-    이 프로그램은 인터넷으로 사진을 보내지 않습니다. 모든 처리는 이 컴퓨터의 브라우저 안에서만 이루어집니다.
+    이 프로그램은 인터넷으로 사진을 보내지 않습니다. 모든 처리는 이 기기(컴퓨터·휴대폰)의 브라우저 안에서만 이루어집니다.
   </div>
 </aside>
 
 <main id="main">
   <div id="viewbar">
-    <span class="msg" id="msg">제목·사진 설명은 용지 위에서 바로 클릭해 입력하세요.</span>
-    화면 배율 <input type="range" id="viewZoom" min="40" max="150" value="90"> <span id="viewZoomTxt">90%</span>
+    <button id="menuBtn">☰ 설정</button>
+    <span class="msg" id="msg"></span>
+    화면 배율 <input type="range" id="viewZoom" min="20" max="150" value="90"> <span id="viewZoomTxt">90%</span>
+    <button id="fitBtn" title="용지를 화면 폭에 맞춤">폭 맞춤</button>
   </div>
   <div id="pages"></div>
 </main>
+
+<div id="backdrop"></div>
+
+<!-- 휴대폰용 하단 막대 -->
+<div id="mbar">
+  <div id="selbar">
+    <div class="fields">
+      <input type="text" id="selTitle" placeholder="사진 제목">
+      <textarea id="selDesc" placeholder="사진 설명"></textarea>
+    </div>
+    <div class="strip">
+      <b id="selNo">사진</b>
+      <button data-a="zin">＋ 확대</button>
+      <button data-a="zout">－ 축소</button>
+      <button data-a="fit">맞춤/채우기</button>
+      <button data-a="reset">원위치</button>
+      <button data-a="left">◀ 앞으로</button>
+      <button data-a="right">뒤로 ▶</button>
+      <button data-a="clearMarks">표시삭제</button>
+      <button data-a="replace">교체</button>
+      <button data-a="remove">✕ 빼기</button>
+      <button data-a="desel">선택 해제</button>
+    </div>
+  </div>
+  <div class="strip" id="mtools">
+    <button id="mAdd" class="primary">＋ 사진</button>
+    <button data-t="move">✋ 이동</button>
+    <button data-t="arrow">➜ 화살표</button>
+    <button data-t="ellipse">◯ 원</button>
+    <button data-t="rect">▭ 사각형</button>
+    <button data-t="num">① 번호</button>
+    <button data-t="text">가 글자</button>
+    <button data-t="pen">✎ 펜</button>
+    <button data-t="erase">⌫ 지우개</button>
+    <button id="mUndo">↶ 되돌리기</button>
+    <button id="mPrint">🖨 PDF</button>
+  </div>
+</div>
 
 <script>
 (() => {
@@ -286,7 +367,11 @@
     fitDefault: 'contain', autoDate: true,
     badges: []
   };
-  const UI = { tool: 'move', color: COLORS[0], thick: 4, tsize: 55, zoom: 90 };
+  const NARROW = matchMedia('(max-width: 820px)');
+  const COARSE = matchMedia('(pointer: coarse)').matches;
+  const MOBILE_MAX_PX = 3000;   // 휴대폰에서는 큰 사진을 이 크기로 줄여 메모리 부족을 막음
+  const UI = { tool: 'move', color: COLORS[0], thick: 4, tsize: 55, zoom: 90, fit: NARROW.matches, sel: -1 };
+  const touches = new Map();   // 화면에 닿은 손가락 위치
   const history = [];   // { b, marks } : 표시 되돌리기용
   let drag = null;
   let pickTarget = 0;
@@ -342,7 +427,7 @@
     const land = S.orient === 'landscape';
     const pw = land ? 297 : 210, ph = land ? 210 : 297;
     $('pagestyle').textContent = `@page { size: A4 ${S.orient}; margin: 0; }`;
-    pagesEl.style.zoom = UI.zoom / 100;
+    applyZoom();
 
     const lineH = S.descSize * 1.45;   // pt
     const pp = perPage(), pc = pageCount();
@@ -380,7 +465,7 @@
             </div>
             <div class="b-info">${esc(b.img.name || '')} · ${b.img.w}×${b.img.h}</div>`;
         } else {
-          html += `<div class="ph"><span class="ic">🖼</span>사진을 여기로 끌어다 놓거나<br>클릭해서 고르세요</div>`;
+          html += `<div class="ph"><span class="ic">🖼</span>사진을 여기로 끌어다 놓거나<br>눌러서 고르세요</div>`;
         }
         html += `</div>`;
         if (S.descLines > 0) {
@@ -399,6 +484,8 @@
     pagesEl.querySelectorAll('[contenteditable]').forEach(el => {
       try { el.contentEditable = 'plaintext-only'; } catch (e) { /* 미지원 브라우저 */ }
     });
+    if (UI.sel >= S.count || !(S.badges[UI.sel] && S.badges[UI.sel].img)) UI.sel = -1;
+    setSel(UI.sel);
     pagesEl.querySelectorAll('.b-frame.has').forEach(fr => {
       const i = +fr.dataset.i;
       const img = fr.querySelector('img');
@@ -411,6 +498,34 @@
 
   // 쪽 번호는 아래 여백의 가운데쯤에 둔다
   function footBottom() { return Math.max(1.5, (S.bottomMargin - 3.5) / 2); }
+
+  // 화면 배율: '폭 맞춤'이면 용지가 화면 폭에 꼭 맞게
+  function applyZoom() {
+    if (UI.fit) {
+      const pagePx = (S.orient === 'landscape' ? 297 : 210) * 96 / 25.4 + 4;
+      const pad = NARROW.matches ? 12 : 40;
+      UI.zoom = Math.max(20, Math.min(100, Math.floor(($('main').clientWidth - pad) / pagePx * 100)));
+    }
+    pagesEl.style.zoom = UI.zoom / 100;
+    $('viewZoom').value = UI.zoom;
+    $('viewZoomTxt').textContent = UI.zoom + '%';
+    $('fitBtn').classList.toggle('on', UI.fit);
+  }
+
+  // 사진 선택 (휴대폰: 선택한 사진만 손가락으로 이동·확대)
+  function setSel(i) {
+    UI.sel = i;
+    pagesEl.querySelectorAll('.b-frame.sel').forEach(f => f.classList.remove('sel'));
+    const fr = i >= 0 ? frameOf(i) : null;
+    if (fr) fr.classList.add('sel');
+    document.body.classList.toggle('has-sel', !!fr);
+    if (fr) {
+      const b = S.badges[i];
+      $('selNo').textContent = `사진 ${i + 1}`;
+      $('selTitle').value = b.title;
+      $('selDesc').value = b.desc;
+    }
+  }
 
   function frameOf(i) { return pagesEl.querySelector(`.b-frame[data-i="${i}"]`); }
 
@@ -546,7 +661,18 @@
       im.onload = async () => {
         let date = null;
         try { date = fmtDate(exifDate(await file.slice(0, 262144).arrayBuffer())); } catch (e) { /* 무시 */ }
-        resolve({ src, w: im.naturalWidth, h: im.naturalHeight, name: file.name, date });
+        let w = im.naturalWidth, h = im.naturalHeight, out = src;
+        if (COARSE && Math.max(w, h) > MOBILE_MAX_PX) {
+          try {
+            const k = MOBILE_MAX_PX / Math.max(w, h);
+            const c = document.createElement('canvas');
+            c.width = Math.round(w * k); c.height = Math.round(h * k);
+            c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+            const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+            if (blob) { URL.revokeObjectURL(src); out = URL.createObjectURL(blob); w = c.width; h = c.height; }
+          } catch (e) { /* 줄이기 실패 시 원본 사용 */ }
+        }
+        resolve({ src: out, w, h, name: file.name, date });
       };
       im.onerror = () => { URL.revokeObjectURL(src); reject(new Error(file.name)); };
       im.src = src;
@@ -634,16 +760,22 @@
     const filled = S.badges.slice(0, S.count).filter(b => b.img).length;
     $('summary').innerHTML = `한 장에 <b>${pp}개</b> (가로 ${S.cols} × 세로 ${S.rows}) · 전체 <b>${S.count}개</b> → <b>A4 ${pc}장</b>` +
       (pc > 1 && last !== pp ? `<br>마지막 장에는 ${last}개` : '') + `<br>사진 넣은 칸: ${filled} / ${S.count}`;
-    document.querySelectorAll('#tools button').forEach(bt => bt.classList.toggle('on', bt.dataset.t === UI.tool));
+    document.querySelectorAll('#tools button, #mtools [data-t]').forEach(bt => bt.classList.toggle('on', bt.dataset.t === UI.tool));
     $('swatches').innerHTML = COLORS.map(c => `<button class="sw${c === UI.color ? ' on' : ''}" data-c="${c}" style="background:${c}" title="${c}"></button>`).join('');
-    document.body.className = UI.tool === 'move' ? '' : UI.tool === 'erase' ? 't-erase' : 't-draw';
+    document.body.classList.toggle('t-erase', UI.tool === 'erase');
+    document.body.classList.toggle('t-draw', UI.tool !== 'move' && UI.tool !== 'erase');
   }
 
   let msgTimer;
   function say(t) {
     $('msg').textContent = t;
     clearTimeout(msgTimer);
-    msgTimer = setTimeout(() => { $('msg').textContent = '제목·사진 설명은 용지 위에서 바로 클릭해 입력하세요.'; }, 5000);
+    msgTimer = setTimeout(defaultMsg, 5000);
+  }
+  function defaultMsg() {
+    $('msg').textContent = COARSE
+      ? '사진을 한 번 누르면 선택됩니다. 선택한 사진은 한 손가락으로 이동, 두 손가락으로 확대·축소.'
+      : '제목·사진 설명은 용지 위에서 바로 클릭해 입력하세요.';
   }
 
   // ---------- 사이드 패널 이벤트 ----------
@@ -708,16 +840,42 @@
   $('fitDefault').onchange = e => { S.fitDefault = e.target.value; saveSettings(); };
 
   $('bulkBtn').onclick = () => $('bulkFile').click();
-  $('bulkFile').onchange = e => { addFiles(e.target.files, firstEmpty(), true); e.target.value = ''; };
+  $('bulkFile').onchange = e => {
+    document.body.classList.remove('side-open'); addFiles(e.target.files, firstEmpty(), true); e.target.value = ''; };
   $('oneFile').onchange = e => { if (e.target.files.length) addFiles(e.target.files, pickTarget, false); e.target.value = ''; };
 
   $('tools').onclick = e => { const b = e.target.closest('button'); if (b) { UI.tool = b.dataset.t; syncSide(); } };
+  $('mtools').onclick = e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.t) { UI.tool = b.dataset.t; syncSide(); }
+    else if (b.id === 'mUndo') undo();
+    else if (b.id === 'mAdd') $('bulkFile').click();
+    else if (b.id === 'mPrint') $('printBtn').click();
+  };
+  $('selbar').onclick = e => {
+    const b = e.target.closest('button[data-a]');
+    if (!b || UI.sel < 0) return;
+    if (b.dataset.a === 'desel') setSel(-1);
+    else badgeAction(UI.sel, b.dataset.a);
+  };
+  [['selTitle', 'title'], ['selDesc', 'desc']].forEach(([id, k]) => $(id).addEventListener('input', e => {
+    if (UI.sel < 0) return;
+    S.badges[UI.sel][k] = e.target.value;
+    const el = pagesEl.querySelector(`[data-b="${k}"][data-i="${UI.sel}"]`);
+    if (el) el.textContent = e.target.value;
+  }));
+  $('menuBtn').onclick = () => document.body.classList.toggle('side-open');
+  $('backdrop').onclick = () => document.body.classList.remove('side-open');
+  $('fitBtn').onclick = () => { UI.fit = true; applyZoom(); };
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (UI.fit) applyZoom(); }, 150); });
   $('swatches').onclick = e => { const b = e.target.closest('.sw'); if (b) { UI.color = b.dataset.c; syncSide(); } };
   $('thick').oninput = e => UI.thick = +e.target.value;
   $('tsize').oninput = e => UI.tsize = +e.target.value;
   $('undoBtn').onclick = undo;
   $('viewZoom').value = UI.zoom;
-  $('viewZoom').oninput = e => { UI.zoom = +e.target.value; $('viewZoomTxt').textContent = UI.zoom + '%'; pagesEl.style.zoom = UI.zoom / 100; saveSettings(); };
+  $('viewZoom').oninput = e => { UI.fit = false; UI.zoom = +e.target.value; applyZoom(); saveSettings(); };
 
   $('printBtn').onclick = () => {
     if (document.activeElement) document.activeElement.blur();
@@ -780,6 +938,7 @@
       if (el.dataset.k === 'docTitle') saveSettings();
     } else if (el.dataset.b) {
       S.badges[+el.dataset.i][el.dataset.b] = el.textContent;
+      if (+el.dataset.i === UI.sel) $(el.dataset.b === 'title' ? 'selTitle' : 'selDesc').value = el.textContent;
     }
   });
   // 붙여넣기는 글자만
@@ -799,7 +958,9 @@
     const dbox = e.target.closest('.b-desc');
     if (dbox && e.target === dbox) { const t = dbox.querySelector('.b-dt'); t.focus(); return; }
     const fr = e.target.closest('.b-frame');
-    if (fr && !fr.classList.contains('has')) { pickTarget = +fr.dataset.i; $('oneFile').click(); }
+    if (fr && !fr.classList.contains('has')) { pickTarget = +fr.dataset.i; $('oneFile').click(); return; }
+    if (fr && UI.tool === 'move') { if (+fr.dataset.i !== UI.sel) setSel(+fr.dataset.i); return; }
+    if (!fr && !e.target.closest('[contenteditable]')) setSel(-1);
   });
 
   function badgeAction(i, a) {
@@ -825,20 +986,29 @@
     layoutLayer(i);
   }
 
+  function capture(fr, e) { try { fr.setPointerCapture(e.pointerId); } catch (err) { /* 이미 끝난 터치 */ } }
+
   // 마우스: 이동/그리기
   pagesEl.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
     const fr = e.target.closest('.b-frame.has');
     if (!fr || e.target.closest('.b-tools')) return;
     const i = +fr.dataset.i, b = S.badges[i];
+    const t = UI.tool;
+    const touch = e.pointerType === 'touch';
+    if (touch && t === 'move' && i !== UI.sel) return;   // 선택 안 된 사진 위에서는 화면 스크롤
     e.preventDefault();
     if (document.activeElement && document.activeElement.isContentEditable) document.activeElement.blur();
     const p = ptIn(i, e);
-    const t = UI.tool;
 
     if (t === 'move') {
-      fr.setPointerCapture(e.pointerId);
-      drag = { type: 'pan', i, fr, sx: e.clientX, sy: e.clientY, ox: b.ox, oy: b.oy };
+      if (touch) {
+        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (touches.size === 2) { startPinch(i, fr); return; }
+        if (touches.size > 2) return;
+      }
+      capture(fr, e);
+      drag = { type: 'pan', pid: e.pointerId, i, fr, sx: e.clientX, sy: e.clientY, ox: b.ox, oy: b.oy };
     } else if (t === 'erase') {
       const pad = 15;
       for (let k = b.marks.length - 1; k >= 0; k--) {
@@ -849,7 +1019,7 @@
       }
     } else if (t === 'text') {
       const text = $('markText').value.trim();
-      if (!text) { say('왼쪽 [표시할 글자] 칸에 글자를 먼저 입력하세요.'); $('markText').focus(); return; }
+      if (!text) { say('설정의 [표시할 글자] 칸에 글자를 먼저 입력하세요.'); return; }
       pushHistory(b);
       b.marks.push({ t: 'text', x: p.x, y: p.y, text, c: UI.color, s: UI.tsize, w: UI.thick });
       drawMarks(i);
@@ -859,7 +1029,7 @@
       b.marks.push({ t: 'num', x: p.x, y: p.y, n, c: UI.color, s: UI.tsize, w: UI.thick });
       drawMarks(i);
     } else {
-      fr.setPointerCapture(e.pointerId);
+      capture(fr, e);
       pushHistory(b);
       const m = t === 'pen'
         ? { t, pts: [[p.x, p.y]], c: UI.color, w: UI.thick }
@@ -869,10 +1039,37 @@
     }
   });
 
+  function pinchInfo(fr) {
+    const [a, c] = [...touches.values()];
+    const r = fr.getBoundingClientRect();
+    return {
+      d: Math.hypot(a.x - c.x, a.y - c.y) || 1,
+      mx: ((a.x + c.x) / 2 - r.left) / r.width * 100,
+      my: ((a.y + c.y) / 2 - r.top) / r.height * 100
+    };
+  }
+  function startPinch(i, fr) {
+    const b = S.badges[i], q = pinchInfo(fr);
+    drag = { type: 'pinch', i, fr, d0: q.d, mx0: q.mx, my0: q.my, z0: b.zoom, ox0: b.ox, oy0: b.oy };
+  }
+
   const onMove = e => {
+    if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (!drag) return;
     const b = S.badges[drag.i];
+    if (drag.type === 'pinch') {
+      if (touches.size < 2) return;
+      const q = pinchInfo(drag.fr);
+      const nz = Math.max(0.2, Math.min(8, drag.z0 * q.d / drag.d0));
+      const k = nz / drag.z0;
+      b.zoom = nz;
+      b.ox = q.mx - 50 - (drag.mx0 - 50 - drag.ox0) * k;
+      b.oy = q.my - 50 - (drag.my0 - 50 - drag.oy0) * k;
+      layoutLayer(drag.i);
+      return;
+    }
     if (drag.type === 'pan') {
+      if (drag.pid !== e.pointerId) return;
       const r = drag.fr.getBoundingClientRect();
       b.ox = drag.ox + (e.clientX - drag.sx) / r.width * 100;
       b.oy = drag.oy + (e.clientY - drag.sy) / r.height * 100;
@@ -887,11 +1084,15 @@
   pagesEl.addEventListener('pointermove', onMove);
 
   const endDrag = e => {
+    const wasTouch = touches.delete(e.pointerId);
+    if (drag && drag.type === 'pan' && drag.pid !== e.pointerId) return;
+    if (drag && drag.type === 'pinch') { drag = null; return; }   // 손가락 하나라도 떼면 확대 끝
+    if (wasTouch && !drag) return;
     if (drag && e.type === 'pointerup') onMove(e);   // 마지막 위치까지 반영
     if (drag && drag.type === 'draw') {
       const m = drag.m, b = S.badges[drag.i];
       const tiny = m.t === 'pen' ? m.pts.length < 2 : Math.hypot(m.x2 - m.x1, m.y2 - m.y1) < 8;
-      if (tiny) { b.marks.pop(); history.pop(); drawMarks(drag.i); say('마우스를 누른 채로 끌어서 그리세요.'); }
+      if (tiny) { b.marks.pop(); history.pop(); drawMarks(drag.i); say(COARSE ? '손가락을 댄 채로 끌어서 그리세요.' : '마우스를 누른 채로 끌어서 그리세요.'); }
     }
     drag = null;
   };
@@ -953,8 +1154,8 @@
   // ---------- 시작 ----------
   loadSettings();
   if (S.autoGrid) [S.cols, S.rows] = suggestGrid(S.count);
-  $('viewZoom').value = UI.zoom;
-  $('viewZoomTxt').textContent = UI.zoom + '%';
+  if (NARROW.matches) UI.fit = true;
+  defaultMsg();
   render();
 })();
 </script>
