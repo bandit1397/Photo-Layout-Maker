@@ -147,6 +147,13 @@
   <p class="lead">사건 현장 사진을 A4 사진대지로 정리합니다.</p>
 
   <div class="sec">
+    <h2>맨 위 제목</h2>
+    <div class="row"><input type="text" id="docTitleIn" placeholder="예: 사 진 대 지 / 현장 사진 / 증거물 사진"></div>
+    <div class="row"><input type="text" id="docSubIn" placeholder="부제 (사건번호·피의자·장소 등, 비워두면 인쇄 안 됨)"></div>
+    <div class="hint">용지 위 제목을 직접 클릭해서 고쳐도 됩니다. 제목은 다음에 열 때도 유지됩니다.</div>
+  </div>
+
+  <div class="sec">
     <h2>① 사진 수와 배치</h2>
     <div class="row">
       <span class="grow">전체 사진 수</span>
@@ -577,6 +584,8 @@
   }
 
   function syncSide() {
+    if (document.activeElement !== $('docTitleIn')) $('docTitleIn').value = S.docTitle;
+    if (document.activeElement !== $('docSubIn')) $('docSubIn').value = S.docSub;
     $('count').value = S.count;
     $('cols').value = S.cols;
     $('rows').value = S.rows;
@@ -608,6 +617,13 @@
   }
 
   // ---------- 사이드 패널 이벤트 ----------
+  [['docTitleIn', 'docTitle'], ['docSubIn', 'docSub']].forEach(([id, k]) => {
+    $(id).addEventListener('input', e => {
+      S[k] = e.target.value;
+      pagesEl.querySelectorAll(`[data-k="${k}"]`).forEach(o => o.textContent = S[k]);
+      saveSettings();
+    });
+  });
   $('count').addEventListener('change', e => setCount(+e.target.value));
   $('cntUp').onclick = () => setCount(S.count + 1);
   $('cntDown').onclick = () => setCount(S.count - 1);
@@ -690,6 +706,7 @@
     if (el.dataset.k) {
       S[el.dataset.k] = el.textContent;
       pagesEl.querySelectorAll(`[data-k="${el.dataset.k}"]`).forEach(o => { if (o !== el) o.textContent = el.textContent; });
+      $(el.dataset.k + 'In').value = el.textContent;
       if (el.dataset.k === 'docTitle') saveSettings();
     } else if (el.dataset.b) {
       S.badges[+el.dataset.i][el.dataset.b] = el.textContent;
