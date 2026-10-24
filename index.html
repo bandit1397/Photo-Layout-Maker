@@ -81,12 +81,11 @@
   /* ---------- A4 용지 ---------- */
   .page {
     background: var(--paper); color: var(--ink); position: relative;
-    box-shadow: 0 1px 4px rgba(0,0,0,.25); padding: 12mm; display: flex; flex-direction: column;
+    box-shadow: 0 1px 4px rgba(0,0,0,.25); padding: 15mm 12mm 12mm; display: flex; flex-direction: column;
     flex: none;
   }
   .pg-head { text-align: center; margin-bottom: 4mm; flex: none; }
   .pg-title { font-size: 20pt; font-weight: bold; letter-spacing: 2pt; line-height: 1.3; outline: none; min-height: 1.3em; }
-  .pg-sub { font-size: 10.5pt; line-height: 1.4; outline: none; min-height: 1.4em; margin-top: 1mm; }
   .pg-foot { position: absolute; bottom: 5mm; left: 0; right: 0; text-align: center; font-size: 9pt; }
   .grid { flex: 1; display: grid; gap: 5mm; min-height: 0; }
 
@@ -102,9 +101,10 @@
   .b-layer img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; -webkit-user-drag: none; }
   .b-layer svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
   .b-desc {
-    flex: none; border-top: 0.25mm solid var(--ink); padding: 1.2mm 2mm; font-size: 10pt; line-height: 5.2mm;
-    outline: none; overflow: hidden; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere;
+    flex: none; border-top: 0.25mm solid var(--ink); padding: 1.2mm 2mm; overflow: hidden;
+    display: flex; flex-direction: column; cursor: text;
   }
+  .b-dt { outline: none; max-height: 100%; overflow: hidden; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
   [contenteditable]:empty::before { content: attr(data-ph); color: #aab; font-weight: normal; }
   [contenteditable]:focus { background: #fffbe6; }
 
@@ -150,7 +150,6 @@
     <h2>맨 위 제목</h2>
     <div class="row"><input type="text" id="docTitleIn" placeholder="예: 사 진 대 지 / 현장 사진 / 증거물 사진"></div>
     <div class="row">글자 크기 <input type="range" id="titleSize" min="12" max="40" value="20" class="grow"> <span id="titleSizeTxt">20pt</span></div>
-    <div class="row"><input type="text" id="docSubIn" placeholder="부제 (사건번호·피의자·장소 등, 비워두면 인쇄 안 됨)"></div>
     <div class="hint">용지 위 제목을 직접 클릭해서 고쳐도 됩니다. 제목은 다음에 열 때도 유지됩니다.</div>
   </div>
 
@@ -226,11 +225,19 @@
     <div class="row"><label><input type="checkbox" id="showNo" checked> 배지에 "사진 1, 2…" 번호 표시</label></div>
     <div class="row"><label><input type="checkbox" id="showTitle" checked> 배지 제목줄 표시</label></div>
     <div class="row"><label><input type="checkbox" id="showPageNo" checked> 쪽 번호 표시</label></div>
+    <div class="row">사진 제목 글자 <input type="range" id="bTitleSize" min="8" max="20" step="0.5" value="10.5" class="grow"> <span id="bTitleSizeTxt">10.5pt</span></div>
     <div class="row">사진 설명 줄 수
       <select id="descLines">
         <option value="0">없음</option><option value="1">1줄</option><option value="2" selected>2줄</option>
-        <option value="3">3줄</option><option value="4">4줄</option>
+        <option value="3">3줄</option><option value="4">4줄</option><option value="5">5줄</option>
       </select>
+    </div>
+    <div class="row">사진 설명 글자 <input type="range" id="descSize" min="8" max="20" step="0.5" value="10" class="grow"> <span id="descSizeTxt">10pt</span></div>
+    <div class="row">설명 가로 정렬
+      <button data-ah="left">왼쪽</button><button data-ah="center">가운데</button><button data-ah="right">오른쪽</button>
+    </div>
+    <div class="row">설명 세로 정렬
+      <button data-av="flex-start">위</button><button data-av="center">가운데</button><button data-av="flex-end">아래</button>
     </div>
   </div>
 
@@ -268,8 +275,7 @@
 
   const S = {
     docTitle: '사 진 대 지',
-    docSub: '',
-    titleSize: 20,
+    titleSize: 20, bTitleSize: 10.5, descSize: 10, descAlignH: 'center', descAlignV: 'center',
     count: 4, cols: 2, rows: 2, orient: 'portrait', autoGrid: true,
     showHeader: true, showNo: true, showTitle: true, showPageNo: true, descLines: 2,
     fitDefault: 'contain', autoDate: true,
@@ -303,7 +309,7 @@
   function pageCount() { return Math.max(1, Math.ceil(S.count / perPage())); }
 
   // ---------- 설정 저장(사진 제외) ----------
-  const SETTING_FIELDS = ['cols','rows','orient','autoGrid','showHeader','showNo','showTitle','showPageNo','descLines','fitDefault','autoDate','docTitle','titleSize'];
+  const SETTING_FIELDS = ['cols','rows','orient','autoGrid','showHeader','showNo','showTitle','showPageNo','descLines','fitDefault','autoDate','docTitle','titleSize','bTitleSize','descSize','descAlignH','descAlignV'];
   function saveSettings() {
     try {
       const o = {};
@@ -333,7 +339,7 @@
     $('pagestyle').textContent = `@page { size: A4 ${S.orient}; margin: 0; }`;
     pagesEl.style.zoom = UI.zoom / 100;
 
-    const descH = S.descLines > 0 ? (S.descLines * 5.2 + 2.4) : 0;
+    const lineH = S.descSize * 1.45;   // pt
     const pp = perPage(), pc = pageCount();
     let html = '';
     for (let p = 0; p < pc; p++) {
@@ -341,7 +347,6 @@
       if (S.showHeader) {
         html += `<div class="pg-head">
           <div class="pg-title" style="font-size:${S.titleSize}pt" contenteditable="true" data-k="docTitle" data-ph="제목 입력">${esc(S.docTitle)}</div>
-          <div class="pg-sub" contenteditable="true" data-k="docSub" data-ph="(사건번호·피의자·장소 등 입력, 비워두면 인쇄되지 않음)">${esc(S.docSub)}</div>
         </div>`;
       }
       html += `<div class="grid" style="grid-template-columns:repeat(${S.cols},minmax(0,1fr));grid-template-rows:repeat(${S.rows},minmax(0,1fr))">`;
@@ -351,7 +356,7 @@
         const b = S.badges[i];
         html += `<div class="badge" data-i="${i}">`;
         if (S.showTitle) {
-          html += `<div class="b-title">${S.showNo ? `<span class="b-no">사진 ${i + 1}</span>` : ''}
+          html += `<div class="b-title" style="height:${S.bTitleSize * 2}pt;font-size:${S.bTitleSize}pt">${S.showNo ? `<span class="b-no">사진 ${i + 1}</span>` : ''}
             <span class="b-tt" contenteditable="true" data-b="title" data-i="${i}" data-ph="제목">${esc(b.title)}</span></div>`;
         }
         html += `<div class="b-frame${b.img ? ' has' : ''}" data-i="${i}">`;
@@ -373,8 +378,9 @@
           html += `<div class="ph"><span class="ic">🖼</span>사진을 여기로 끌어다 놓거나<br>클릭해서 고르세요</div>`;
         }
         html += `</div>`;
-        if (descH) {
-          html += `<div class="b-desc" style="height:${descH}mm" contenteditable="true" data-b="desc" data-i="${i}" data-ph="사진 설명">${esc(b.desc)}</div>`;
+        if (S.descLines > 0) {
+          html += `<div class="b-desc" style="height:calc(${S.descLines * lineH}pt + 2.4mm);justify-content:${S.descAlignV}">
+            <div class="b-dt" style="font-size:${S.descSize}pt;line-height:${lineH}pt;text-align:${S.descAlignH}" contenteditable="true" data-b="desc" data-i="${i}" data-ph="사진 설명">${esc(b.desc)}</div></div>`;
         }
         html += `</div>`;
       }
@@ -587,7 +593,9 @@
 
   function syncSide() {
     if (document.activeElement !== $('docTitleIn')) $('docTitleIn').value = S.docTitle;
-    if (document.activeElement !== $('docSubIn')) $('docSubIn').value = S.docSub;
+    [['bTitleSize', 'pt'], ['descSize', 'pt']].forEach(([k, u]) => { $(k).value = S[k]; $(k + 'Txt').textContent = S[k] + u; });
+    document.querySelectorAll('[data-ah]').forEach(b => b.classList.toggle('on', b.dataset.ah === S.descAlignH));
+    document.querySelectorAll('[data-av]').forEach(b => b.classList.toggle('on', b.dataset.av === S.descAlignV));
     $('titleSize').value = S.titleSize;
     $('titleSizeTxt').textContent = S.titleSize + 'pt';
     $('count').value = S.count;
@@ -621,7 +629,7 @@
   }
 
   // ---------- 사이드 패널 이벤트 ----------
-  [['docTitleIn', 'docTitle'], ['docSubIn', 'docSub']].forEach(([id, k]) => {
+  [['docTitleIn', 'docTitle']].forEach(([id, k]) => {
     $(id).addEventListener('input', e => {
       S[k] = e.target.value;
       pagesEl.querySelectorAll(`[data-k="${k}"]`).forEach(o => o.textContent = S[k]);
@@ -645,6 +653,9 @@
   $('oLandscape').onclick = () => { S.orient = 'landscape'; render(); };
   ['showHeader','showNo','showTitle','showPageNo','autoDate'].forEach(k => $(k).onchange = e => { S[k] = e.target.checked; render(); });
   $('descLines').onchange = e => { S.descLines = +e.target.value; render(); };
+  ['bTitleSize', 'descSize'].forEach(k => $(k).addEventListener('input', e => { S[k] = +e.target.value; render(); }));
+  document.querySelectorAll('[data-ah]').forEach(b => b.onclick = () => { S.descAlignH = b.dataset.ah; render(); });
+  document.querySelectorAll('[data-av]').forEach(b => b.onclick = () => { S.descAlignV = b.dataset.av; render(); });
   $('fitDefault').onchange = e => { S.fitDefault = e.target.value; saveSettings(); };
 
   $('bulkBtn').onclick = () => $('bulkFile').click();
@@ -706,7 +717,7 @@
   $('newBtn').onclick = () => {
     if (S.badges.some(b => b.img) && !confirm('지금 작업을 지우고 새로 만들까요? (저장하지 않은 내용은 사라집니다)')) return;
     S.badges.forEach(b => { if (b.img && b.img.src.startsWith('blob:')) URL.revokeObjectURL(b.img.src); });
-    S.badges = []; S.docSub = ''; history.length = 0;
+    S.badges = []; history.length = 0;
     setCount(4);
   };
 
@@ -736,6 +747,8 @@
   pagesEl.addEventListener('click', e => {
     const btn = e.target.closest('.b-tools button');
     if (btn) { badgeAction(+btn.closest('.b-frame').dataset.i, btn.dataset.a); return; }
+    const dbox = e.target.closest('.b-desc');
+    if (dbox && e.target === dbox) { const t = dbox.querySelector('.b-dt'); t.focus(); return; }
     const fr = e.target.closest('.b-frame');
     if (fr && !fr.classList.contains('has')) { pickTarget = +fr.dataset.i; $('oneFile').click(); }
   });
